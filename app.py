@@ -14,8 +14,32 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 # Load data
 # -----------------------------------------------------------------------------
-STUMPAGE_URL = "https://raw.githubusercontent.com/azd169/timber_prices/main/ms_stumpage.csv"
-stumpage = pd.read_csv(STUMPAGE_URL)
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/azd169/timber_prices/main/ms_stumpage.csv"
+
+@st.cache_data
+def load_stumpage():
+    try:
+        headers = {}
+        # Optional: if you add a token (for private repos) via Streamlit secrets
+        token = st.secrets.get("GITHUB_TOKEN", None)
+        if token:
+            headers["Authorization"] = f"token {token}"
+
+        resp = requests.get(GITHUB_RAW_URL, headers=headers, timeout=10)
+        resp.raise_for_status()  # will raise HTTPError if not 200
+
+        # Read CSV from the text content
+        return pd.read_csv(io.StringIO(resp.text))
+    except Exception as e:
+        st.error(
+            "❌ Could not download stumpage data from GitHub. "
+            "Please check that the repository is public (or that a valid token is set) "
+            "and that the file path/branch are correct."
+        )
+        st.exception(e)
+        return pd.DataFrame()
+
+stumpage = load_stumpage()
 
 # Make sure Year is numeric just in case
 stumpage["Year"] = pd.to_numeric(stumpage["Year"], errors="coerce")
@@ -333,4 +357,5 @@ st.markdown(
     </div>
     """,
     unsafe_allow_html=True
+
 )
